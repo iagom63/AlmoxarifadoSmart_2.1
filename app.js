@@ -16,7 +16,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Conectar ao MongoDB Atlas
-mongoose.connect('mongodb+srv://iagom63im:<db_password>@almoxarifadosmart20.8ijh75f.mongodb.net/almoxarifadosmart?retryWrites=true&w=majority&appName=AlmoxarifadoSmart20', {
+mongoose.connect('mongodb+srv://iagom63im:kJ8dIltUgrZrHGKc@almoxarifadosmart20.8ijh75f.mongodb.net/almoxarifadosmart?retryWrites=true&w=majority&appName=AlmoxarifadoSmart20', {
   useNewUrlParser: true,
   useUnifiedTopology: true
 });
