@@ -67,7 +67,7 @@ app.post('/itens', async (req, res) => {
 
   await Saida.insertMany(registros);
   io.emit('update');
-  res.redirect('/solicitacao.html');
+  res.redirect('/itens.html');
 });
 
 app.get('/api/saidas', async (req, res) => {
