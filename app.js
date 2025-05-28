@@ -94,3 +94,7 @@ io.on('connection', (socket) => {
 server.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
 });
+
+app.post('/itens', async (req, res) => {
+  // lógica para inserir vários itens no banco
+});
