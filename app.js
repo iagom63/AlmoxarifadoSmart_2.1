@@ -178,15 +178,20 @@ app.get('/exportar-relatorio', async (req, res) => {
   });
 });
 
+// Rota nova de devolução — apenas toggla delivered
 app.post('/reordenar/:id', async (req, res) => {
   try {
     const item = await Saida.findById(req.params.id);
+    if (!item) return res.sendStatus(404);
+
     item.delivered = !item.delivered;
     await item.save();
+
     io.emit('update');
     res.sendStatus(200);
-  } catch {
-    res.status(404).send('Item não encontrado');
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Erro ao marcar devolução');
   }
 });
 
