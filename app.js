@@ -1,4 +1,3 @@
-// app.js
 const express   = require('express');
 const mongoose  = require('mongoose');
 const socketIO  = require('socket.io');
@@ -12,18 +11,20 @@ const server = http.createServer(app);
 const io     = socketIO(server);
 const PORT   = process.env.PORT || 3000;
 
-// Servir arquivos estáticos da pasta public
+// ─── Middlewares ───────────────────────────────────────────────────────────────
 app.use(express.static('public'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Conectar ao MongoDB Atlas
+// ─── Conexão MongoDB ────────────────────────────────────────────────────────────
 mongoose.connect(
   'mongodb+srv://iagom63im:YIznlIgbhqVfaBOC@almoxarifadosmart20.8ijh75f.mongodb.net/almoxarifadosmart?retryWrites=true&w=majority',
   { useNewUrlParser: true, useUnifiedTopology: true }
 );
+mongoose.connection.on('error', err => console.error('❌ MongoDB error:', err));
+mongoose.connection.once('open', () => console.log('✅ MongoDB conectado'));
 
-// Definição do schema com remoção lógica
+// ─── Schema & Model ─────────────────────────────────────────────────────────────
 const saidaSchema = new mongoose.Schema({
   nome: String,
   descricao: String,
@@ -34,21 +35,23 @@ const saidaSchema = new mongoose.Schema({
   observacao: String,
   responsavel: String,
   delivered: Boolean,
-  visivel: { type: Boolean, default: true },
+  visivel:   { type: Boolean, default: true },
   timestamp: Number
 });
 const Saida = mongoose.model('Saida', saidaSchema);
 
-// Utilitário para data atual (YYYY-MM-DD)
+// ─── Helpers ───────────────────────────────────────────────────────────────────
 const getCurrentDate = () => new Date().toISOString().split('T')[0];
 
-// → GET /api/saidas
+// ─── Rotas ──────────────────────────────────────────────────────────────────────
+
+// GET todas as saídas visíveis
 app.get('/api/saidas', async (req, res) => {
   const dados = await Saida.find({ visivel: { $ne: false } });
   res.json(dados);
 });
 
-// → POST /adicionar
+// POST de formulários únicos
 app.post('/adicionar', async (req, res) => {
   const { nome, descricao, quantidade, unidade, tipo } = req.body;
   const data = getCurrentDate();
@@ -61,9 +64,9 @@ app.post('/adicionar', async (req, res) => {
   res.sendStatus(201);
 });
 
-// → POST /itens (com debug)
+// POST /itens com debug
 app.post('/itens', async (req, res) => {
-  console.log('→ Recebido no /itens:', req.body);
+  console.log('→ [POST /itens] req.body =', req.body);
 
   const { solicitante, destino, autorizado, count, ...rest } = req.body;
   const data      = getCurrentDate();
@@ -71,7 +74,7 @@ app.post('/itens', async (req, res) => {
   const registros = [];
 
   for (let i = 0; i < Number(count); i++) {
-    const item = new Saida({
+    registros.push({
       nome: solicitante,
       observacao: destino,
       responsavel: autorizado,
@@ -84,17 +87,16 @@ app.post('/itens', async (req, res) => {
       visivel: true,
       timestamp
     });
-    registros.push(item);
   }
 
-  await Saida.insertMany(registros);
-  console.log('→ Itens gravados:', registros);
+  const inserted = await Saida.insertMany(registros);
+  console.log('→ [POST /itens] documentos inseridos =', inserted);
 
   io.emit('update');
   res.redirect('/solicitacao.html');
 });
 
-// → POST /editar/:id
+// POST de edição
 app.post('/editar/:id', async (req, res) => {
   const { nome, descricao, quantidade, unidade, tipo, observacao } = req.body;
   try {
@@ -114,7 +116,7 @@ app.post('/editar/:id', async (req, res) => {
   }
 });
 
-// → GET /exportar-relatorio-excel
+// GET exportar intervalo Excel
 app.get('/exportar-relatorio-excel', async (req, res) => {
   const { inicio, fim } = req.query;
   if (!inicio || !fim) return res.status(400).send('Datas de início e fim são obrigatórias.');
@@ -124,27 +126,25 @@ app.get('/exportar-relatorio-excel', async (req, res) => {
     const workbook  = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Relatório');
     worksheet.columns = [
-      { header: 'Nome',         key: 'nome',       width: 20 },
-      { header: 'Descrição',    key: 'descricao',  width: 25 },
-      { header: 'Quantidade',   key: 'quantidade', width: 10 },
-      { header: 'Unidade',      key: 'unidade',    width: 10 },
-      { header: 'Tipo',         key: 'tipo',       width: 15 },
-      { header: 'Data',         key: 'data',       width: 15 },
-      { header: 'Entregue?',    key: 'delivered',  width: 10 },
-      { header: 'Observação',   key: 'observacao', width: 30 }
+      { header: 'Nome',       key: 'nome',       width: 20 },
+      { header: 'Descrição',  key: 'descricao',  width: 25 },
+      { header: 'Quantidade', key: 'quantidade', width: 10 },
+      { header: 'Unidade',    key: 'unidade',    width: 10 },
+      { header: 'Tipo',       key: 'tipo',       width: 15 },
+      { header: 'Data',       key: 'data',       width: 15 },
+      { header: 'Entregue?',  key: 'delivered',  width: 10 },
+      { header: 'Observação', key: 'observacao', width: 30 }
     ];
-    dados.forEach(i =>
-      worksheet.addRow({
-        nome: i.nome,
-        descricao: i.descricao,
-        quantidade: i.quantidade,
-        unidade: i.unidade,
-        tipo: i.tipo,
-        data: i.data,
-        delivered: i.delivered ? 'Sim' : 'Não',
-        observacao: i.observacao || ''
-      })
-    );
+    dados.forEach(i => worksheet.addRow({
+      nome: i.nome,
+      descricao: i.descricao,
+      quantidade: i.quantidade,
+      unidade: i.unidade,
+      tipo: i.tipo,
+      data: i.data,
+      delivered: i.delivered ? 'Sim' : 'Não',
+      observacao: i.observacao || ''
+    }));
     const fileName = `relatorio_${inicio}_a_${fim}.xlsx`;
     const filePath = path.join(__dirname, fileName);
     await workbook.xlsx.writeFile(filePath);
@@ -154,7 +154,7 @@ app.get('/exportar-relatorio-excel', async (req, res) => {
   }
 });
 
-// → GET /exportar-relatorio
+// GET exportar dia atual Excel
 app.get('/exportar-relatorio', async (req, res) => {
   const currentDate = getCurrentDate();
   const dados = await Saida.find({ data: currentDate });
@@ -162,34 +162,32 @@ app.get('/exportar-relatorio', async (req, res) => {
   const workbook  = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet('Relatório do Dia');
   worksheet.columns = [
-    { header: 'Nome',        key: 'nome',      width: 20 },
-    { header: 'Descrição',   key: 'descricao', width: 25 },
-    { header: 'Quantidade',  key: 'quantidade', width: 10 },
-    { header: 'Unidade',     key: 'unidade',   width: 10 },
-    { header: 'Tipo',        key: 'tipo',      width: 15 },
-    { header: 'Data',        key: 'data',      width: 15 },
-    { header: 'Entregue?',   key: 'delivered', width: 10 },
-    { header: 'Observação',  key: 'observacao',width: 30 }
+    { header: 'Nome',       key: 'nome',       width: 20 },
+    { header: 'Descrição',  key: 'descricao',  width: 25 },
+    { header: 'Quantidade', key: 'quantidade', width: 10 },
+    { header: 'Unidade',    key: 'unidade',    width: 10 },
+    { header: 'Tipo',       key: 'tipo',       width: 15 },
+    { header: 'Data',       key: 'data',       width: 15 },
+    { header: 'Entregue?',  key: 'delivered',  width: 10 },
+    { header: 'Observação', key: 'observacao', width: 30 }
   ];
-  dados.forEach(i =>
-    worksheet.addRow({
-      nome: i.nome,
-      descricao: i.descricao,
-      quantidade: i.quantidade,
-      unidade: i.unidade,
-      tipo: i.tipo,
-      data: i.data,
-      delivered: i.delivered ? 'Sim' : 'Não',
-      observacao: i.observacao || ''
-    })
-  );
+  dados.forEach(i => worksheet.addRow({
+    nome: i.nome,
+    descricao: i.descricao,
+    quantidade: i.quantidade,
+    unidade: i.unidade,
+    tipo: i.tipo,
+    data: i.data,
+    delivered: i.delivered ? 'Sim' : 'Não',
+    observacao: i.observacao || ''
+  }));
   const fileName = `relatorio_${currentDate}.xlsx`;
   const filePath = path.join(__dirname, fileName);
   await workbook.xlsx.writeFile(filePath);
   res.download(filePath, fileName, err => { if (!err) fs.unlinkSync(filePath); });
 });
 
-// → POST reordenar (marca devolução)
+// POST toggle delivered
 app.post('/reordenar/:id', async (req, res) => {
   try {
     const item = await Saida.findById(req.params.id);
@@ -203,7 +201,7 @@ app.post('/reordenar/:id', async (req, res) => {
   }
 });
 
-// → POST remover (remoção lógica)
+// POST remoção lógica
 app.post('/remover/:id', async (req, res) => {
   try {
     const item = await Saida.findById(req.params.id);
@@ -217,11 +215,14 @@ app.post('/remover/:id', async (req, res) => {
   }
 });
 
+// Página inicial
 app.get('/', (req, res) => res.redirect('/solicitacao.html'));
 
+// WebSocket
 io.on('connection', socket => {
-  console.log('Cliente conectado');
-  socket.on('disconnect', () => console.log('Cliente desconectado'));
+  console.log('🔌 Cliente conectado via Socket.io');
+  socket.on('disconnect', () => console.log('🔌 Cliente desconectado'));
 });
 
-server.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
+// Inicia servidor
+server.listen(PORT, () => console.log(`🚀 Servidor rodando na porta ${PORT}`));
