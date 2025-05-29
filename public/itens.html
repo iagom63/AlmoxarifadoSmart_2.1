@@ -1,94 +1,73 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-  <meta charset="UTF-8" />
-  <title>Detalhes dos Itens</title>
-  <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8">
+  <title>Detalhar Itens</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
-  <div class="logo">
-    <img src="logo.png" alt="Logo" />
-  </div>
-
+  <div class="logo"><img src="logo.png" alt="Logo"></div>
   <div class="formulario-container">
     <h1>Detalhar Itens</h1>
+    <form id="itens-form" action="/itens" method="post">
+      <p><strong>Solicitante:</strong> <span data-solicitante></span></p>
+      <p><strong>Destino:</strong>     <span data-destino></span></p>
+      <p><strong>Autorizado:</strong> <span data-autorizado></span></p>
+      <input type="hidden" name="solicitante">
+      <input type="hidden" name="destino">
+      <input type="hidden" name="autorizado">
+      <input type="hidden" name="count">
 
-    <!-- Exibe os dados vindos da página anterior -->
-    <p>
-      <strong>Solicitante:</strong>
-      <span id="display-solicitante"></span>
-    </p>
-    <p>
-      <strong>Local para Utilização:</strong>
-      <span id="display-destino"></span>
-    </p>
-    <p>
-      <strong>Autorizado Por:</strong>
-      <span id="display-autorizado"></span>
-    </p>
-
-    <form action="/itens" method="post" id="itens-form">
-      <!-- Campos ocultos para enviar junto ao POST -->
-      <input type="hidden" name="solicitante" id="input-solicitante" />
-      <input type="hidden" name="destino" id="input-destino" />
-      <input type="hidden" name="autorizado" id="input-autorizado" />
-      <input type="hidden" name="count" id="input-count" />
-
-      <!-- Aqui vão os campos dos itens, gerados dinamicamente via JS -->
-      <div id="itens-container"></div>
-
-      <button class="botao-adicionar" type="submit">
-        Finalizar
-      </button>
+      <div id="campos-itens"></div>
+      <button class="botao-adicionar" type="submit">Finalizar</button>
     </form>
   </div>
 
   <script>
-    // Função para ler query string
-    function getParams() {
-      const params = new URLSearchParams(window.location.search);
-      return {
-        solicitante: params.get("solicitante") || "",
-        destino:     params.get("destino")     || "",
-        autorizado:  params.get("autorizado")  || "",
-        count:       parseInt(params.get("count"), 10) || 0
-      };
+  window.addEventListener('DOMContentLoaded', () => {
+    const params = new URLSearchParams(window.location.search);
+    const solicitante = params.get('solicitante');
+    const destino     = params.get('destino');
+    const autorizado  = params.get('autorizado');
+    const count       = parseInt(params.get('count'), 10);
+
+    document.querySelector('[data-solicitante]').textContent = solicitante;
+    document.querySelector('[data-destino]').textContent     = destino;
+    document.querySelector('[data-autorizado]').textContent  = autorizado;
+
+    const form = document.getElementById('itens-form');
+    form.solicitante.value = solicitante;
+    form.destino.value     = destino;
+    form.autorizado.value  = autorizado;
+    form.count.value       = count;
+
+    const container = document.getElementById('campos-itens');
+    for (let i = 0; i < count; i++) {
+      const div = document.createElement('div');
+      div.innerHTML = `
+        <h4>Item ${i+1}</h4>
+        <label>Descrição:</label><input name="descricao_${i}" required>
+        <label>Quantidade:</label><input name="quantidade_${i}" required>
+        <label>Unidade:</label><input name="unidade_${i}" required>
+        <label>Tipo:</label>
+          <select name="tipo_${i}">
+            <option value="material">Material</option>
+            <option value="equipamento">Equipamento</option>
+          </select>
+        <hr>
+      `;
+      container.appendChild(div);
     }
+  });
 
-    document.addEventListener("DOMContentLoaded", () => {
-      const { solicitante, destino, autorizado, count } = getParams();
-
-      // Preenche os spans de exibição
-      document.getElementById("display-solicitante").textContent = solicitante;
-      document.getElementById("display-destino").textContent     = destino;
-      document.getElementById("display-autorizado").textContent  = autorizado;
-
-      // Preenche os inputs ocultos para o POST
-      document.getElementById("input-solicitante").value = solicitante;
-      document.getElementById("input-destino").value     = destino;
-      document.getElementById("input-autorizado").value  = autorizado;
-      document.getElementById("input-count").value       = count;
-
-      // Gera dinamicamente os campos de cada item
-      const container = document.getElementById("itens-container");
-      for (let i = 0; i < count; i++) {
-        const fieldset = document.createElement("fieldset");
-        fieldset.innerHTML = `
-          <legend>Item ${i+1}</legend>
-          <label>Tipo:</label>
-            <input type="radio" name="tipo_${i}" value="material" checked /> Material
-            <input type="radio" name="tipo_${i}" value="equipamento" /> Equipamento
-          <label>Descrição:</label>
-            <input type="text" name="descricao_${i}" required />
-          <label>Quantidade:</label>
-            <input type="number" name="quantidade_${i}" required />
-          <label>Unidade:</label>
-            <input type="text" name="unidade_${i}" required />
-        `;
-        container.appendChild(fieldset);
-      }
-    });
+  // Log do envio
+  document.getElementById('itens-form').addEventListener('submit', function(e) {
+    console.log('🔀 Submetendo form itens...');
+    const obj = {};
+    new FormData(this).forEach((v,k) => obj[k]=v);
+    console.log('👉 FormData =', obj);
+    // deixa o redirect ocorrer
+  });
   </script>
 </body>
 </html>
