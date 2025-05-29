@@ -21,67 +21,60 @@
     </div>
     <button id="exportar-relatorio" class="botao-exportar">Exportar Relatório Do Dia</button>
   </div>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  const socket = io();
 
-  <script src="/socket.io/socket.io.js"></script>
-  <script>
-    const socket = io();
+  function renderDashboard(data) {
+    const mat = document.getElementById('lista-materiais');
+    const eqp = document.getElementById('lista-equipamentos');
+    mat.innerHTML = '';
+    eqp.innerHTML = '';
 
-    function renderDashboard(data) {
-      const mat = document.getElementById('lista-materiais');
-      const eqp = document.getElementById('lista-equipamentos');
-      mat.innerHTML = '';
-      eqp.innerHTML = '';
-
-      data.forEach(item => {
+    // Materiais
+    data.filter(i => i.tipo === 'material')
+      .forEach(item => {
         const li = document.createElement('li');
         li.innerHTML = `<strong>${item.nome}</strong> – ${item.descricao} (${item.quantidade} ${item.unidade})`;
-
-        // Botão Remover/Devolvido
         const btn = document.createElement('button');
-        btn.textContent = item.tipo === 'equipamento' ? 'Devolvido' : 'Remover';
-        btn.addEventListener('click', () => {
-          fetch(`/remover/${item._id}`, { method: 'POST' })
-            .then(res => {
-              if (!res.ok) throw new Error('Falha ao remover');
-              // A própria emissão do socket 'update' já chama atualizarDashboard,
-              // mas, em caso de demora, você pode chamar direto:
-              // atualizarDashboard();
-            })
-            .catch(err => alert(err.message));
-        });
+        btn.textContent = 'Remover';
+        btn.onclick = () => fetch(`/remover/${item._id}`, { method: 'POST' });
         li.appendChild(btn);
-
-        // Checkbox só para equipamentos, mas agora também faz remoção lógica
-        if (item.tipo === 'equipamento') {
-          const chk = document.createElement('input');
-          chk.type = 'checkbox';
-          chk.checked = item.delivered;
-          chk.addEventListener('change', () => {
-            fetch(`/reordenar/${item._id}`, { method: 'POST' })
-              .catch(() => alert('Erro ao marcar devolvido'));
-          });
-          li.insertBefore(chk, li.firstChild);
-          eqp.appendChild(li);
-        } else {
-          mat.appendChild(li);
-        }
+        mat.appendChild(li);
       });
-    }
 
-    function atualizarDashboard() {
-      fetch('/api/saidas')
-        .then(r => r.json())
-        .then(renderDashboard)
-        .catch(() => alert('Erro ao atualizar dashboard'));
-    }
+    // Equipamentos: não-devolvidos primeiro, depois devolvidos
+    const equipamentos = data.filter(i => i.tipo === 'equipamento');
+    const naoDevolvidos = equipamentos.filter(i => !i.delivered);
+    const devolvidos    = equipamentos.filter(i =>  i.delivered);
 
-    document.getElementById('exportar-relatorio')
-      .addEventListener('click', () => window.location.href = '/exportar-relatorio');
+    naoDevolvidos.concat(devolvidos).forEach(item => {
+      const li = document.createElement('li');
+      if (item.delivered) li.style.opacity = '0.6';
+      const chk = document.createElement('input');
+      chk.type = 'checkbox';
+      chk.checked = item.delivered;
+      chk.onchange = () => fetch(`/reordenar/${item._id}`, { method: 'POST' });
+      const span = document.createElement('span');
+      span.innerHTML = `<strong>${item.nome}</strong> – ${item.descricao} (${item.quantidade} ${item.unidade})`;
+      li.appendChild(chk);
+      li.appendChild(span);
+      eqp.appendChild(li);
+    });
+  }
 
-    socket.on('update', atualizarDashboard);
+  function atualizarDashboard() {
+    fetch('/api/saidas')
+      .then(r => r.json())
+      .then(renderDashboard)
+      .catch(() => console.error('Erro ao atualizar dashboard'));
+  }
 
-    // Carrega inicialmente
-    atualizarDashboard();
-  </script>
+  document.getElementById('exportar-relatorio')
+    .addEventListener('click', () => window.location.href = '/exportar-relatorio');
+
+  socket.on('update', atualizarDashboard);
+  atualizarDashboard();
+</script>
 </body>
 </html>
